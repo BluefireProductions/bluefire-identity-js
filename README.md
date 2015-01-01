@@ -7,3 +7,5 @@ Install
 ------
 
 bower install bluefire-identity --save
+
+grunt bowerInstall
