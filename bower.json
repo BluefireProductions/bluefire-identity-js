@@ -1,0 +1,20 @@
+{
+  "name": "bluefire-identity-js",
+  "version": "1.0.0",
+  "homepage": "https://github.com/BluefireProductions/bluefire-identity-js",
+  "authors": [
+    "Timothy Jones <palantar@gmail.com>"
+  ],
+  "main": "bluefireIdentity.js",
+  "keywords": [
+    "bluefire"
+  ],
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ]
+}

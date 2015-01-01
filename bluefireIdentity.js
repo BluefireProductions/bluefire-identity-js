@@ -1,5 +1,5 @@
 /**
- * Created by bluefire on 2/20/14.
+ * Created by Timothy Jones on 2/20/14.
  */
 
 "use strict";
