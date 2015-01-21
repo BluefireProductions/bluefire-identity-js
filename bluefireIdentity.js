@@ -1,144 +1,166 @@
+'use strict';
+
 /**
+ * @ngdoc overview
+ * @name BluefireIdentity
+ * @description
+ * # BluefireIdentity
+ *
+ * Created by Timothy Jones on 2/20/14.
+ *
+ * Shared JS for Bluefire Identity service to auto-login an Angular app using Angular ui routing.
+ * Include this module in your Angular app and it will automatically redirect you to the Bluefire SSO
+ * server webpage which allows you to log in with your Google account. Once you have signed in, the SSO
+ * server is configured to redirect the user back to the URL specified in the redirect_uri parameter along
+ * with a token parameter containing the JWT token which will then be automatically included as an
+ * Authorization header on all subsequent requests to URLs beginning with either http://localhost: or
+ * https://bluefire. These URLs will be intercepted by BluefireIdentity and the JWT token will be added
+ * as an Authorization header, thus allowing the Angular app to communicate with secure services.
+ *
+ * Note that use of this automated function requires that the client app reserves the GET keyword 'token'
+ * for use by the identity system.  Otherwise, we run the risk of overwriting a value JWT token with the
+ * client app 'token' on page reload at some point.
+ */
+
+angular.module('BluefireIdentity', ['ngCookies'])
+    .config(function ($httpProvider) {
+      $httpProvider.interceptors.push('bluefireIdentity');
+    })
+    .run(function ($rootScope, $state, bluefireIdentity) {
+      bluefireIdentity.setJwtFromUrl();
+      $rootScope.$on('$stateChangeStart', function (event, toState, toParams, fromState, fromParams){
+        if (toState.needAuth && !bluefireIdentity.isAuthorized()){
+          // User isn’t authenticated
+          var toHref = $state.href(toState,toParams);
+
+          var full = location.protocol+'//'+location.hostname+(location.port ? ':'+location.port: '') + location.pathname;
+          var redirectString = 'https://bluefire-sso.appspot.com/?redirect_uri=' + encodeURIComponent(full) + encodeURIComponent(toHref);
+          console.log('Redirecting to: ' + redirectString);
+          window.location = redirectString;
+          event.preventDefault();
+        }
+      })
+    });
+
+/**
+ * @ngdoc function
+ * @name BluefireIdentity.factory:bluefireIdentity
+ * @description
+ * # bluefireIdentity
+ * Factory used by the BluefireIdentity module for intercepting HTTP requests, redirecting to the SSO server
+ * webpage when getting a 403 error, and working with the JWT token grabbed from the 'token' URL parameter.
  * Created by Timothy Jones on 2/20/14.
  */
 
-"use strict";
+angular.module('BluefireIdentity').factory('bluefireIdentity', [ '$q', '$cookies', function ($q, $cookies) {
 
-//Note that use of this automated function requires that the client app reserves the GET keyword 'token'
-//for use by the identity system.  Otherwise, we run the risk of overwriting a value JWT token with the
-//client app 'token' on page reload at some point.
-angular.module('BluefireIdentity',['ngCookies'])
-    .config(function($httpProvider){
-        $httpProvider.interceptors.push('bluefireIdentity');
-    })
-    .run(function ($rootScope, $state, bluefireIdentity) {
-        bluefireIdentity.setJwtFromUrl();
-        $rootScope.$on("$stateChangeStart", function(event, toState, toParams, fromState, fromParams){
-            if (toState.needAuth && !bluefireIdentity.isAuthorized()){
-                // User isn’t authenticated
-                var toHref = $state.href(toState,toParams);
-
-                var full = location.protocol+'//'+location.hostname+(location.port ? ':'+location.port: '') + location.pathname;
-                var redirectString = "https://bluefire-sso.appspot.com/?redirect_uri=" + encodeURIComponent(full) + encodeURIComponent(toHref);
-                console.log("Redirecting to: " + redirectString);
-                window.location = redirectString;
-                event.preventDefault();
-            }
-        })
-    });
-
-angular.module('BluefireIdentity').factory('bluefireIdentity', [ "$q", "$cookies", function ($q, $cookies) {
-    var factory = {};
-
-    factory.isAuthorized = function(){
-        if ($cookies.jwt === undefined || $cookies.jwt == null)
-        {
-            return false;
-        }
-        return true;
+  // Helper function to know whether or not to add Authorization headers to an intercepted request.
+  function isSecureUrl(url) {
+    if (url.startsWith('https://bluefire'))
+    {
+      return true;
     }
 
-    /*$http Interceptor Function*/
-    factory.responseError = function(response) {
-        var status = response.status;
-
-        if (status == 403) {
-            var redirectString = "https://bluefire-sso.appspot.com/?redirect_uri=" + encodeURIComponent(window.location);
-            console.log("Redirecting to: " + redirectString);
-            debugger;
-            window.location = redirectString;
-            return;
-        }
-        // otherwise
-        return $q.reject(response);
+    if (url.startsWith('http://localhost:'))
+    {
+      return true;
     }
 
-    /*$http Interceptor function*/
-    factory.request = function(config){
+    return false;
+  }
 
-        if (typeof String.prototype.startsWith != 'function') {
-            String.prototype.startsWith = function (str){
-                return this.slice(0, str.length) == str;
-            };
-        }
+  var factory = {};
 
-        if (isSecureUrl(config.url) && factory.isAuthorized()) {
-            config.headers['Authorization'] = "Bearer " + $cookies.jwt;
-        }
-        return config;
+  factory.isAuthorized = function() {
+    if ($cookies.jwt === undefined || $cookies.jwt === null)
+    {
+      return false;
+    }
+    return true;
+  }
 
+  // $http Interceptor function
+  factory.responseError = function(response) {
+    var status = response.status;
+    var url = response.config.url;
 
+    if (status === 403 && isSecureUrl(url)) {
+      var redirectString = 'https://bluefire-sso.appspot.com/?redirect_uri=' + encodeURIComponent(window.location);
+      console.log('Redirecting to: ' + redirectString);
+      debugger;
+      window.location = redirectString;
+      return;
+    }
+    // otherwise
+    return $q.reject(response);
+  }
 
-        function isSecureUrl(url){
-            if (url.startsWith("https://bluefire"))
-            {
-                return true;
-            }
+  // $http Interceptor function
+  factory.request = function(config) {
 
-            if (url.startsWith("http://localhost:"))
-            {
-                return true;
-            }
-
-            return false;
-
-        }
+    if (typeof String.prototype.startsWith != 'function') {
+      String.prototype.startsWith = function (str){
+        return this.slice(0, str.length) === str;
+      };
     }
 
-    factory.setJwtFromUrl = function(){
-        var QueryString = function () {
-            // This function is anonymous, is executed immediately and
-            // the return value is assigned to QueryString!
-            var query_string = {};
-            var query = window.location.search.substring(1);
-            var vars = query.split("&");
-            for (var i=0;i<vars.length;i++) {
-                var pair = vars[i].split("=");
-                // If first entry with this name
-                if (typeof query_string[pair[0]] === "undefined") {
-                    query_string[pair[0]] = pair[1];
-                    // If second entry with this name
-                } else if (typeof query_string[pair[0]] === "string") {
-                    var arr = [ query_string[pair[0]], pair[1] ];
-                    query_string[pair[0]] = arr;
-                    // If third or later entry with this name
-                } else {
-                    query_string[pair[0]].push(pair[1]);
-                }
-            }
-            return query_string;
-        } ();
+    if (isSecureUrl(config.url) && factory.isAuthorized()) {
+      config.headers['Authorization'] = 'Bearer ' + $cookies.jwt;
+    }
+    return config;
 
-        if (QueryString.token !== undefined)
-        {
-            $cookies.jwt = QueryString.token;
+  }
+
+  factory.setJwtFromUrl = function(){
+    var QueryString = function () {
+      // This function is anonymous, is executed immediately and
+      // the return value is assigned to QueryString!
+      var query_string = {};
+      var query = window.location.search.substring(1);
+      var vars = query.split('&');
+      for (var i=0;i<vars.length;i++) {
+        var pair = vars[i].split('=');
+        // If first entry with this name
+        if (typeof query_string[pair[0]] === 'undefined') {
+          query_string[pair[0]] = pair[1];
+          // If second entry with this name
+        } else if (typeof query_string[pair[0]] === 'string') {
+          var arr = [ query_string[pair[0]], pair[1] ];
+          query_string[pair[0]] = arr;
+          // If third or later entry with this name
+        } else {
+          query_string[pair[0]].push(pair[1]);
         }
-    };
+      }
+      return query_string;
+    } ();
 
-    factory.getJwt = function(){
-        return $cookies.jwt;
+    if (QueryString.token !== undefined)
+    {
+      $cookies.jwt = QueryString.token;
+    }
+  };
+
+  factory.getJwt = function() {
+    return $cookies.jwt;
+  };
+
+  factory.setJwt = function(jwt) {
+    $cookies.jwt = jwt;
+  };
+
+  factory.clearJwt = function() {
+    delete $cookies['jwt'];
+  };
+
+  factory.getAuthorizationHeader = function() {
+    if ($cookies.jwt === undefined || $cookies.jwt === null)
+    {
+      return '';
     }
 
-    factory.setJwt = function(jwt){
-        $cookies.jwt = jwt;
-    };
+    return 'Bearer ' + $cookies.jwt;
+  };
 
-    factory.clearJwt = function(){
-        delete $cookies['jwt'];
-    };
-
-    factory.getAuthorizationHeader = function(){
-        if ($cookies.jwt === undefined || $cookies.jwt == null)
-        {
-            return "";
-        }
-
-        return "Bearer " + $cookies.jwt;
-    };
-
-
-
-    return factory;
-
-
+  return factory;
 } ]);

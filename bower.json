@@ -1,9 +1,10 @@
 {
   "name": "bluefire-identity-js",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "homepage": "https://github.com/BluefireProductions/bluefire-identity-js",
   "authors": [
-    "Timothy Jones <palantar@gmail.com>"
+    "Timothy Jones <palantar@gmail.com>",
+    "Jonah Dempcy <jdempcy@gmail.com>"
   ],
   "main": "bluefireIdentity.js",
   "keywords": [
