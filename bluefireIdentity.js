@@ -70,7 +70,7 @@ angular.module('BluefireIdentity').factory('bluefireIdentity', [ "$q", "$cookies
 
 
         function isSecureUrl(url){
-            if (url.startsWith("https://") && url.indexOf("bluefire") > -1)
+            if (url.startsWith("https://bluefire"))
             {
                 return true;
             }
