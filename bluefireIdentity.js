@@ -89,10 +89,10 @@ angular.module('BluefireIdentity').factory('bluefireIdentity', [ '$q', '$cookies
       console.log('Redirecting to: ' + redirectString);
       debugger;
       window.location = redirectString;
-      return;
+      return response;
+    } else {
+      return $q.reject(response);
     }
-    // otherwise
-    return $q.reject(response);
   }
 
   // $http Interceptor function
