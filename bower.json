@@ -1,6 +1,9 @@
 {
   "name": "bluefire-identity-js",
-  "version": "1.0.3",
+  "version": "1.0.4",
+  "dependencies": {
+    "angular-local-storage": "~0.1.5"
+  },
   "homepage": "https://github.com/BluefireProductions/bluefire-identity-js",
   "authors": [
     "Timothy Jones <palantar@gmail.com>",
